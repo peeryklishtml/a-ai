@@ -14,6 +14,7 @@ export default function Payment() {
         cep,
         street,
         number,
+        complement,
         neighborhood,
         city,
         uf,
