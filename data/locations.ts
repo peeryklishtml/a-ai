@@ -1,136 +1,63 @@
-import { useState } from 'react';
-import { useRouter } from 'next/router';
-import Head from 'next/head';
-import { estados, cidadesPorEstado } from '@/data/locations';
-import styles from '@/styles/Location.module.css';
+export const estados = [
+    { uf: 'AC', nome: 'Acre' },
+    { uf: 'AL', nome: 'Alagoas' },
+    { uf: 'AP', nome: 'Amapá' },
+    { uf: 'AM', nome: 'Amazonas' },
+    { uf: 'BA', nome: 'Bahia' },
+    { uf: 'CE', nome: 'Ceará' },
+    { uf: 'DF', nome: 'Distrito Federal' },
+    { uf: 'ES', nome: 'Espírito Santo' },
+    { uf: 'GO', nome: 'Goiás' },
+    { uf: 'MA', nome: 'Maranhão' },
+    { uf: 'MT', nome: 'Mato Grosso' },
+    { uf: 'MS', nome: 'Mato Grosso do Sul' },
+    { uf: 'MG', nome: 'Minas Gerais' },
+    { uf: 'PA', nome: 'Pará' },
+    { uf: 'PB', nome: 'Paraíba' },
+    { uf: 'PR', nome: 'Paraná' },
+    { uf: 'PE', nome: 'Pernambuco' },
+    { uf: 'PI', nome: 'Piauí' },
+    { uf: 'RJ', nome: 'Rio de Janeiro' },
+    { uf: 'RN', nome: 'Rio Grande do Norte' },
+    { uf: 'RS', nome: 'Rio Grande do Sul' },
+    { uf: 'RO', nome: 'Rondônia' },
+    { uf: 'RR', nome: 'Roraima' },
+    { uf: 'SC', nome: 'Santa Catarina' },
+    { uf: 'SP', nome: 'São Paulo' },
+    { uf: 'SE', nome: 'Sergipe' },
+    { uf: 'TO', nome: 'Tocantins' },
+];
 
-type Step = 'selection' | 'loading' | 'success';
+type CidadesPorEstado = {
+    [key: string]: string[];
+};
 
-export default function Location() {
-    const router = useRouter();
-    const [step, setStep] = useState<Step>('selection');
-    const [selectedEstado, setSelectedEstado] = useState('');
-    const [selectedCidade, setSelectedCidade] = useState('');
-    const [distance, setDistance] = useState('');
-
-    const handleNext = () => {
-        if (!selectedEstado || !selectedCidade) return;
-
-        setStep('loading');
-
-        // Simula busca de loja (2-3 segundos)
-        setTimeout(() => {
-            // Distância aleatória entre 1-5km
-            const randomDistance = (Math.random() * 4 + 1).toFixed(2);
-            setDistance(randomDistance);
-            setStep('success');
-        }, 2500);
-    };
-
-    const handleGoToMenu = () => {
-        // Salva localização no localStorage
-        localStorage.setItem('userLocation', JSON.stringify({
-            estado: selectedEstado,
-            cidade: selectedCidade,
-            distance: distance
-        }));
-
-        // Redireciona para o menu
-        router.push('/menu');
-    };
-
-    const estadoNome = estados.find(e => e.uf === selectedEstado)?.nome || '';
-    const cidades = selectedEstado ? cidadesPorEstado[selectedEstado] || [] : [];
-
-    return (
-        <>
-            <Head>
-                <title>Selecione sua localização - Zé do Açaí</title>
-            </Head>
-
-            <div className={styles.overlay}>
-                {step === 'selection' && (
-                    <div className={styles.modal}>
-                        <h1 className={styles.title}>
-                            Procure a loja mais <span className={styles.highlightRed}>próxima</span> de você!
-                        </h1>
-                        <p className={styles.subtitle}>Escolha seu estado:</p>
-
-                        <div className={styles.formGroup}>
-                            <select
-                                className={styles.select}
-                                value={selectedEstado}
-                                onChange={(e) => {
-                                    setSelectedEstado(e.target.value);
-                                    setSelectedCidade(''); // Reset cidade
-                                }}
-                            >
-                                <option value="">Selecione um estado</option>
-                                {estados.map((estado) => (
-                                    <option key={estado.uf} value={estado.uf}>
-                                        {estado.nome}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-
-                        {selectedEstado && (
-                            <>
-                                <p className={styles.subtitle}>Escolha sua cidade:</p>
-                                <div className={styles.formGroup}>
-                                    <select
-                                        className={styles.select}
-                                        value={selectedCidade}
-                                        onChange={(e) => setSelectedCidade(e.target.value)}
-                                    >
-                                        <option value="">Selecione uma cidade</option>
-                                        {cidades.map((cidade) => (
-                                            <option key={cidade} value={cidade}>
-                                                {cidade}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-                            </>
-                        )}
-
-                        <button
-                            className={styles.btnPrimary}
-                            onClick={handleNext}
-                            disabled={!selectedEstado || !selectedCidade}
-                        >
-                            Próximo
-                        </button>
-                    </div>
-                )}
-
-                {step === 'loading' && (
-                    <div className={styles.modal}>
-                        <div className={styles.loadingContainer}>
-                            <h2 className={styles.loadingTitle}>Procurando a loja mais próxima...</h2>
-                            <p className={styles.loadingText}>
-                                Procurando a loja mais próxima de você em {selectedCidade}...
-                            </p>
-                            <div className={styles.spinner}></div>
-                        </div>
-                    </div>
-                )}
-
-                {step === 'success' && (
-                    <div className={styles.modal}>
-                        <div className={styles.successContainer}>
-                            <div className={styles.checkIcon}></div>
-                            <p className={styles.successText}>
-                                A loja mais próxima fica a <span className={styles.distance}>{distance}km</span> de você!<br />
-                                Seu pedido chegará entre 15 a 45 minutos.
-                            </p>
-                            <button className={styles.btnSuccess} onClick={handleGoToMenu}>
-                                Olhar cardápio de ofertas!
-                            </button>
-                        </div>
-                    </div>
-                )}
-            </div>
-        </>
-    );
-}
+export const cidadesPorEstado: CidadesPorEstado = {
+    'AC': ['Rio Branco', 'Cruzeiro do Sul', 'Sena Madureira'],
+    'AL': ['Maceió', 'Arapiraca', 'Palmeira dos Índios'],
+    'AP': ['Macapá', 'Santana', 'Laranjal do Jari'],
+    'AM': ['Manaus', 'Parintins', 'Itacoatiara'],
+    'BA': ['Salvador', 'Feira de Santana', 'Vitória da Conquista', 'Camaçari', 'Ilhéus'],
+    'CE': ['Fortaleza', 'Caucaia', 'Juazeiro do Norte', 'Sobral'],
+    'DF': ['Brasília', 'Taguatinga', 'Ceilândia', 'Samambaia'],
+    'ES': ['Vitória', 'Vila Velha', 'Serra', 'Cariacica'],
+    'GO': ['Goiânia', 'Aparecida de Goiânia', 'Anápolis', 'Rio Verde'],
+    'MA': ['São Luís', 'Imperatriz', 'São José de Ribamar', 'Timon'],
+    'MT': ['Cuiabá', 'Várzea Grande', 'Rondonópolis', 'Sinop'],
+    'MS': ['Campo Grande', 'Dourados', 'Três Lagoas', 'Corumbá'],
+    'MG': ['Belo Horizonte', 'Uberlândia', 'Contagem', 'Juiz de Fora', 'Betim'],
+    'PA': ['Belém', 'Ananindeua', 'Santarém', 'Marabá'],
+    'PB': ['João Pessoa', 'Campina Grande', 'Santa Rita', 'Patos'],
+    'PR': ['Curitiba', 'Londrina', 'Maringá', 'Ponta Grossa', 'Cascavel'],
+    'PE': ['Recife', 'Jaboatão dos Guararapes', 'Olinda', 'Caruaru'],
+    'PI': ['Teresina', 'Parnaíba', 'Picos', 'Floriano'],
+    'RJ': ['Rio de Janeiro', 'São Gonçalo', 'Duque de Caxias', 'Nova Iguaçu', 'Niterói'],
+    'RN': ['Natal', 'Mossoró', 'Parnamirim', 'São Gonçalo do Amarante'],
+    'RS': ['Porto Alegre', 'Caxias do Sul', 'Pelotas', 'Canoas', 'Santa Maria'],
+    'RO': ['Porto Velho', 'Ji-Paraná', 'Ariquemes', 'Vilhena'],
+    'RR': ['Boa Vista', 'Rorainópolis', 'Caracaraí'],
+    'SC': ['Florianópolis', 'Joinville', 'Blumenau', 'São José', 'Chapecó'],
+    'SP': ['São Paulo', 'Guarulhos', 'Campinas', 'São Bernardo do Campo', 'Santos', 'Ribeirão Preto'],
+    'SE': ['Aracaju', 'Nossa Senhora do Socorro', 'Lagarto', 'Itabaiana'],
+    'TO': ['Palmas', 'Araguaína', 'Gurupi', 'Porto Nacional'],
+};
