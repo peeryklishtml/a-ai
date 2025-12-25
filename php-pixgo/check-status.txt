@@ -1,0 +1,93 @@
+<?php
+/**
+ * PixGo Payment Status Check API
+ * Endpoint para verificar o status de um pagamento
+ * 
+ * Uso: GET /php-pixgo/check-status.php?payment_id=dep_xxxxx
+ * 
+ * Limite: 1.000 requisições por 24 horas
+ */
+
+header('Content-Type: application/json');
+
+// PixGo API Configuration
+define('PIXGO_API_KEY', 'pk_1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef');
+define('PIXGO_BASE_URL', 'https://pixgo.org/api/v1');
+
+// Only accept GET requests
+if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
+    http_response_code(405);
+    echo json_encode(['error' => 'Method not allowed']);
+    exit;
+}
+
+// Get payment ID from query string
+$paymentId = $_GET['payment_id'] ?? '';
+
+if (empty($paymentId)) {
+    http_response_code(400);
+    echo json_encode([
+        'success' => false,
+        'error' => 'MISSING_PAYMENT_ID',
+        'message' => 'Payment ID is required'
+    ]);
+    exit;
+}
+
+// Initialize cURL for PixGo API request
+$curl = curl_init();
+
+curl_setopt_array($curl, [
+    CURLOPT_URL => PIXGO_BASE_URL . '/payment/' . urlencode($paymentId) . '/status',
+    CURLOPT_RETURNTRANSFER => true,
+    CURLOPT_TIMEOUT => 10,
+    CURLOPT_HTTPHEADER => [
+        'X-API-Key: ' . PIXGO_API_KEY
+    ]
+]);
+
+// Execute request
+$response = curl_exec($curl);
+$httpCode = curl_getinfo($curl, CURLINFO_HTTP_CODE);
+$curlError = curl_error($curl);
+curl_close($curl);
+
+// Handle cURL errors
+if ($curlError) {
+    http_response_code(500);
+    echo json_encode([
+        'success' => false,
+        'error' => 'CONNECTION_ERROR',
+        'message' => 'Erro ao conectar com o servidor: ' . $curlError
+    ]);
+    exit;
+}
+
+// Parse PixGo API response
+$data = json_decode($response, true);
+
+// Handle successful status check
+if ($httpCode === 200 && isset($data['success']) && $data['success']) {
+    http_response_code(200);
+    echo json_encode([
+        'success' => true,
+        'payment_id' => $data['data']['payment_id'],
+        'external_id' => $data['data']['external_id'],
+        'amount' => $data['data']['amount'],
+        'status' => $data['data']['status'],
+        'customer_name' => $data['data']['customer_name'],
+        'customer_cpf' => $data['data']['customer_cpf'],
+        'customer_phone' => $data['data']['customer_phone'],
+        'created_at' => $data['data']['created_at'],
+        'updated_at' => $data['data']['updated_at']
+    ]);
+} else {
+    // Handle errors
+    http_response_code($httpCode ?: 404);
+    echo json_encode([
+        'success' => false,
+        'error' => 'PAYMENT_NOT_FOUND',
+        'message' => 'Pagamento não encontrado ou erro ao verificar status'
+    ]);
+}
+?>

@@ -1,0 +1,115 @@
+<?php
+/**
+ * PixGo Payment Creation API
+ * Endpoint para criar pagamentos Pix usando a API PixGo
+ * 
+ * Uso: POST /php-pixgo/create-payment.php
+ */
+
+header('Content-Type: application/json');
+
+// PixGo API Configuration
+define('PIXGO_API_KEY', 'pk_1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef');
+define('PIXGO_BASE_URL', 'https://pixgo.org/api/v1');
+
+// Only accept POST requests
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    http_response_code(405);
+    echo json_encode(['error' => 'Method not allowed']);
+    exit;
+}
+
+// Get POST data
+$amount = filter_input(INPUT_POST, 'total_amount', FILTER_VALIDATE_FLOAT);
+$customerName = $_POST['customer_name'] ?? '';
+$customerEmail = $_POST['customer_email'] ?? '';
+$customerCpf = $_POST['customer_cpf'] ?? '';
+$customerPhone = $_POST['customer_phone'] ?? '';
+$customerAddress = $_POST['customer_address'] ?? '';
+$productName = $_POST['product_name'] ?? 'Pedido Zé do Açaí';
+$externalId = $_POST['external_id'] ?? 'order_' . time();
+
+// Validate minimum amount (PixGo requires minimum R$ 10.00)
+if (!$amount || $amount < 10) {
+    http_response_code(400);
+    echo json_encode([
+        'success' => false,
+        'error' => 'INVALID_AMOUNT',
+        'message' => 'O valor mínimo é R$ 10,00'
+    ]);
+    exit;
+}
+
+// Prepare payment data for PixGo API
+$paymentData = [
+    'amount' => $amount,
+    'description' => $productName,
+    'customer_name' => $customerName,
+    'customer_cpf' => preg_replace('/\D/', '', $customerCpf), // Remove non-digits
+    'customer_email' => $customerEmail,
+    'customer_phone' => $customerPhone,
+    'customer_address' => $customerAddress,
+    'external_id' => $externalId
+];
+
+// Initialize cURL for PixGo API request
+$curl = curl_init();
+
+curl_setopt_array($curl, [
+    CURLOPT_URL => PIXGO_BASE_URL . '/payment/create',
+    CURLOPT_RETURNTRANSFER => true,
+    CURLOPT_POST => true,
+    CURLOPT_TIMEOUT => 30,
+    CURLOPT_HTTPHEADER => [
+        'Content-Type: application/json',
+        'X-API-Key: ' . PIXGO_API_KEY
+    ],
+    CURLOPT_POSTFIELDS => json_encode($paymentData)
+]);
+
+// Execute request
+$response = curl_exec($curl);
+$httpCode = curl_getinfo($curl, CURLINFO_HTTP_CODE);
+$curlError = curl_error($curl);
+curl_close($curl);
+
+// Handle cURL errors
+if ($curlError) {
+    http_response_code(500);
+    echo json_encode([
+        'success' => false,
+        'error' => 'CONNECTION_ERROR',
+        'message' => 'Erro ao conectar com o servidor de pagamento: ' . $curlError
+    ]);
+    exit;
+}
+
+// Parse PixGo API response
+$data = json_decode($response, true);
+
+// Handle successful payment creation
+if ($httpCode === 201 && isset($data['success']) && $data['success']) {
+    http_response_code(201);
+    echo json_encode([
+        'success' => true,
+        'qr_code' => $data['data']['qr_code'],
+        'qr_image_url' => $data['data']['qr_image_url'],
+        'payment_id' => $data['data']['payment_id'],
+        'external_id' => $data['data']['external_id'],
+        'amount' => $data['data']['amount'],
+        'status' => $data['data']['status'],
+        'expires_at' => $data['data']['expires_at'],
+        'created_at' => $data['data']['created_at']
+    ]);
+} else {
+    // Handle PixGo API errors
+    http_response_code($httpCode ?: 500);
+    echo json_encode([
+        'success' => false,
+        'error' => $data['error'] ?? 'PAYMENT_CREATION_FAILED',
+        'message' => $data['message'] ?? 'Falha ao criar pagamento',
+        'current_limit' => $data['current_limit'] ?? null,
+        'amount_requested' => $data['amount_requested'] ?? null
+    ]);
+}
+?>
