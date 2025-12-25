@@ -1,26 +1,77 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 import { estados, cidadesPorEstado } from '@/data/locations';
 import styles from '@/styles/Location.module.css';
 
-type Step = 'selection' | 'loading' | 'success';
+type Step = 'detecting' | 'selection' | 'loading' | 'success';
 
 export default function Location() {
     const router = useRouter();
-    const [step, setStep] = useState<Step>('selection');
+    const [step, setStep] = useState<Step>('detecting');
     const [selectedEstado, setSelectedEstado] = useState('');
     const [selectedCidade, setSelectedCidade] = useState('');
     const [distance, setDistance] = useState('');
+    const [detectedLocation, setDetectedLocation] = useState('');
 
-    const handleNext = () => {
-        if (!selectedEstado || !selectedCidade) return;
+    // Detecta localização automaticamente ao carregar
+    useEffect(() => {
+        detectLocation();
+    }, []);
 
+    const detectLocation = async () => {
+        try {
+            // Usa API de geolocalização por IP (não precisa de permissão)
+            const response = await fetch('https://ipapi.co/json/');
+            const data = await response.json();
+
+            // Extrai estado e cidade do IP
+            const estado = data.region || '';
+            const cidade = data.city || '';
+
+            // Encontra o UF do estado
+            const estadoObj = estados.find(e =>
+                e.nome.toLowerCase().includes(estado.toLowerCase()) ||
+                estado.toLowerCase().includes(e.nome.toLowerCase())
+            );
+
+            if (estadoObj && cidade) {
+                setSelectedEstado(estadoObj.uf);
+                setSelectedCidade(cidade);
+                setDetectedLocation(`${cidade}, ${estadoObj.nome}`);
+
+                // Vai direto para loading após 1.5s
+                setTimeout(() => {
+                    handleAutoSearch(estadoObj.uf, cidade);
+                }, 1500);
+            } else {
+                // Se não conseguiu detectar, mostra seleção manual
+                setStep('selection');
+            }
+        } catch (error) {
+            console.error('Erro ao detectar localização:', error);
+            // Se erro, mostra seleção manual
+            setStep('selection');
+        }
+    };
+
+    const handleAutoSearch = (uf: string, cidade: string) => {
         setStep('loading');
 
         // Simula busca de loja (2-3 segundos)
         setTimeout(() => {
-            // Distância aleatória entre 1-5km
+            const randomDistance = (Math.random() * 4 + 1).toFixed(2);
+            setDistance(randomDistance);
+            setStep('success');
+        }, 2500);
+    };
+
+    const handleManualNext = () => {
+        if (!selectedEstado || !selectedCidade) return;
+
+        setStep('loading');
+
+        setTimeout(() => {
             const randomDistance = (Math.random() * 4 + 1).toFixed(2);
             setDistance(randomDistance);
             setStep('success');
@@ -28,14 +79,12 @@ export default function Location() {
     };
 
     const handleGoToMenu = () => {
-        // Salva localização no localStorage
         localStorage.setItem('userLocation', JSON.stringify({
             estado: selectedEstado,
             cidade: selectedCidade,
             distance: distance
         }));
 
-        // Redireciona para o menu
         router.push('/menu');
     };
 
@@ -49,6 +98,18 @@ export default function Location() {
             </Head>
 
             <div className={styles.overlay}>
+                {step === 'detecting' && (
+                    <div className={styles.modal}>
+                        <div className={styles.loadingContainer}>
+                            <h2 className={styles.loadingTitle}>Detectando sua localização...</h2>
+                            <p className={styles.loadingText}>
+                                Aguarde enquanto identificamos sua localização
+                            </p>
+                            <div className={styles.spinner}></div>
+                        </div>
+                    </div>
+                )}
+
                 {step === 'selection' && (
                     <div className={styles.modal}>
                         <h1 className={styles.title}>
@@ -62,7 +123,7 @@ export default function Location() {
                                 value={selectedEstado}
                                 onChange={(e) => {
                                     setSelectedEstado(e.target.value);
-                                    setSelectedCidade(''); // Reset cidade
+                                    setSelectedCidade('');
                                 }}
                             >
                                 <option value="">Selecione um estado</option>
@@ -96,7 +157,7 @@ export default function Location() {
 
                         <button
                             className={styles.btnPrimary}
-                            onClick={handleNext}
+                            onClick={handleManualNext}
                             disabled={!selectedEstado || !selectedCidade}
                         >
                             Próximo
@@ -109,7 +170,7 @@ export default function Location() {
                         <div className={styles.loadingContainer}>
                             <h2 className={styles.loadingTitle}>Procurando a loja mais próxima...</h2>
                             <p className={styles.loadingText}>
-                                Procurando a loja mais próxima de você em {selectedCidade}...
+                                Procurando a loja mais próxima de você em {detectedLocation || selectedCidade}...
                             </p>
                             <div className={styles.spinner}></div>
                         </div>
@@ -134,3 +195,4 @@ export default function Location() {
         </>
     );
 }
+
